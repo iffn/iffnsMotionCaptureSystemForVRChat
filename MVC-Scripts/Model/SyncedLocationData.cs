@@ -14,6 +14,7 @@ public class SyncedLocationData : UdonSharpBehaviour
     [SerializeField] Toggle doReplayToggle;
     [SerializeField] TMPro.TextMeshProUGUI currentPlayerText;
     [SerializeField] TMPro.TextMeshProUGUI currentOwnerText;
+    [SerializeField] TMPro.TextMeshProUGUI recordedTimeText;
 
     [SerializeField] AvatarModelMover linkedAvatarModelMover;
 
@@ -21,12 +22,18 @@ public class SyncedLocationData : UdonSharpBehaviour
     [UdonSynced] Vector3[] syncedRecordedAvatarPositions;
     [UdonSynced] Quaternion[] syncedRecorderBoneRotations;
     [UdonSynced] float recordingTime;
+    [UdonSynced] float syncedPlayerHeight;
 
     public float RecordTime
     {
         get
         {
             return recordingTime;
+        }
+        set
+        {
+            recordingTime = value;
+            recordedTimeText.text = $"{recordedTimeText}s";
         }
     }
 
@@ -37,8 +44,8 @@ public class SyncedLocationData : UdonSharpBehaviour
     VRCPlayerApi localPlayer;
 
     //Runtime variables
-    bool doRecordIfOwner = true;
-    public bool DoReplay { get; private set; } = true;
+    bool doRecordIfOwner = false;
+    public bool DoReplay { get; private set; } = false;
     VRCPlayerApi linkedPlayer;
     VRCPlayerApi[] players;
     int currentPlayerIndex;
@@ -50,49 +57,22 @@ public class SyncedLocationData : UdonSharpBehaviour
         {
             this.linkedPlayer = value;
             currentPlayerText.text = linkedPlayer.displayName;
+
         }
     }
 
-    //UI events
-    public void IncreasePlayerIndex()
+    //Unity functions
+    private void Start()
     {
-        currentPlayerIndex++;
+        //Note Actual setup controlled by ClearAndSetup function from MotionCaptureController
 
-        if(currentPlayerIndex >= players.Length) currentPlayerIndex = 0;
-
-        LinkedPlayer = players[currentPlayerIndex];
-    }
-
-    public void DecreasePlayerIndex()
-    {
-        currentPlayerIndex--;
-
-        if (currentPlayerIndex < 0) currentPlayerIndex = players.Length - 1;
-
-        LinkedPlayer = players[currentPlayerIndex];
-    }
-
-    public void UpdateDoRecordIfOwnerToggle()
-    {
-        doRecordIfOwner = doRecordIfOwnerToggle.isOn;
-    }
-
-    public void UpdateDoReplayToggleToggle()
-    {
+        //Set states from UI buttons
         DoReplay = doReplayToggle.isOn;
-    }
-
-    public void RequestOwnership()
-    {
-        SetPlayerAsOwner();
+        doRecordIfOwner = doRecordIfOwnerToggle.isOn;
+        linkedAvatarModelMover.gameObject.SetActive(DoReplay);
     }
 
     //Script events
-    public void UpdatePlayerList(VRCPlayerApi[] players)
-    {
-        this.players = players;
-    }
-
     public void ClearAndSetup(MotionCaptureController linkedController)
     {
         //External data
@@ -107,6 +87,14 @@ public class SyncedLocationData : UdonSharpBehaviour
 
         //Default values
         linkedPlayer = localPlayer;
+
+        //Setups
+        linkedAvatarModelMover.Setup();
+    }
+
+    public void UpdatePlayerList(VRCPlayerApi[] players)
+    {
+        this.players = players;
     }
 
     public void SetPlayerAsOwner()
@@ -121,7 +109,7 @@ public class SyncedLocationData : UdonSharpBehaviour
         //Positions
         syncedRecordedAvatarPositions = new Vector3[recordedAvatarPositions.Count];
 
-        for(int i = 0; i < syncedRecordedAvatarPositions.Length; i++)
+        for (int i = 0; i < syncedRecordedAvatarPositions.Length; i++)
         {
             syncedRecordedAvatarPositions[i] = (Vector3)recordedAvatarPositions[i].Reference;
         }
@@ -131,25 +119,28 @@ public class SyncedLocationData : UdonSharpBehaviour
         syncedRecorderBoneRotations = new Quaternion[firstRotationElement.Length * recorderBoneRotations.Count];
 
         int count = 0;
-        for(int i = 0; i < recorderBoneRotations.Count; i++)
+        for (int i = 0; i < recorderBoneRotations.Count; i++)
         {
             Quaternion[] currentRotationElement = (Quaternion[])recorderBoneRotations[i].Reference;
 
-            for (int j = 0; j< firstRotationElement.Length; j++)
+            for (int j = 0; j < firstRotationElement.Length; j++)
             {
                 syncedRecorderBoneRotations[count++] = currentRotationElement[j];
             }
         }
-        
+
+        //Height
+        syncedPlayerHeight = linkedPlayer.GetAvatarEyeHeightAsMeters();
+
         //Sync
-        if(sync) RequestSerialization();
+        if (sync) RequestSerialization();
     }
 
-    public void RecordLocation()
+    public void RecordLocation(float timeForReference)
     {
         if (!Networking.IsOwner(gameObject) || !doRecordIfOwner)
         {
-            SetReplayLocations(Time.time - linkedController.replayStartTime);
+            SetReplayLocations(Time.time - linkedController.ReplayStartTime);
 
             return;
         }
@@ -180,17 +171,19 @@ public class SyncedLocationData : UdonSharpBehaviour
             linkedPlayer.GetBoneRotation(HumanBodyBones.RightHand),
             linkedPlayer.GetBoneRotation(HumanBodyBones.LeftToes),
             linkedPlayer.GetBoneRotation(HumanBodyBones.RightToes),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.LeftEye),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.RightEye),
+            //linkedPlayer.GetBoneRotation(HumanBodyBones.LeftEye),
+            //linkedPlayer.GetBoneRotation(HumanBodyBones.RightEye),
         };
 
         recordedAvatarPositions.Add(new DataToken((object)avatarPosition));
         recorderBoneRotations.Add(new DataToken((object)boneRotations));
+
+        recordingTime = timeForReference;
     }
 
     public void SetReplayLocations(float replayTime)
     {
-        if(!DoReplay) return;
+        if (!DoReplay) return;
 
         //To move out
         int recordedSteps = syncedRecordedAvatarPositions.Length;
@@ -225,14 +218,61 @@ public class SyncedLocationData : UdonSharpBehaviour
         linkedAvatarModelMover.SetAvatarData(playerPosition, boneRotations);
     }
 
+    //UI events
+    public void IncreasePlayerIndex()
+    {
+        currentPlayerIndex++;
+
+        if(currentPlayerIndex >= players.Length) currentPlayerIndex = 0;
+
+        LinkedPlayer = players[currentPlayerIndex];
+    }
+
+    public void DecreasePlayerIndex()
+    {
+        currentPlayerIndex--;
+
+        if (currentPlayerIndex < 0) currentPlayerIndex = players.Length - 1;
+
+        LinkedPlayer = players[currentPlayerIndex];
+    }
+
+    public void SelectOwnPlayerIndex()
+    {
+        currentPlayerIndex = localPlayer.playerId;
+
+        LinkedPlayer = players[currentPlayerIndex];
+    }
+
+    public void UpdateDoRecordIfOwnerToggle()
+    {
+        doRecordIfOwner = doRecordIfOwnerToggle.isOn;
+    }
+
+    public void UpdateDoReplayToggleToggle()
+    {
+        DoReplay = doReplayToggle.isOn;
+
+        linkedAvatarModelMover.gameObject.SetActive(DoReplay);
+    }
+
+    public void RequestOwnership()
+    {
+        SetPlayerAsOwner();
+    }
+
     //VRChat functions
     public override void OnDeserialization()
     {
         base.OnDeserialization();
+
+        RecordTime = recordingTime; //Update text
+
+        linkedAvatarModelMover.transform.localScale = syncedPlayerHeight * Vector3.one;
     }
 
     public override void OnOwnershipTransferred(VRCPlayerApi player)
     {
-        currentOwnerText.text = player.displayName + (player.isLocal ? " (you)" : "");
+        currentOwnerText.text = $"[{player.playerId}] {player.displayName}{(player.isLocal ? " (you)" : "")}";
     }
 }

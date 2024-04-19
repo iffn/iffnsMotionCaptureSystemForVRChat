@@ -15,7 +15,12 @@ public class MotionCaptureController : UdonSharpBehaviour
 {
     //UI
     [SerializeField] TMPro.TextMeshProUGUI currentFixedUpdateText;
+    [SerializeField] TMPro.TextMeshProUGUI currentTimeText;
     [SerializeField] Slider timelineSlider;
+    [SerializeField] Button StartRecordingButton;
+    [SerializeField] Button StopRecordingButton;
+    [SerializeField] Button StartPlayingButton;
+    [SerializeField] Button StopPlayingButton;
 
     //Unity assignments
     [SerializeField] SyncedLocationData[] linkedSyncedDataHolders;
@@ -27,7 +32,7 @@ public class MotionCaptureController : UdonSharpBehaviour
     int currentFixedUpdateIndex;
 
     //Replay data
-    public float replayStartTime { get; private set; }
+    public float ReplayStartTime { get; private set; }
 
     //Internal functions
     void Setup()
@@ -42,11 +47,13 @@ public class MotionCaptureController : UdonSharpBehaviour
     {
         int recordIndex = currentFixedUpdateIndex / fixedUpdateBetweenRecordStates;
         
+        float recordingTime = Time.time - ReplayStartTime;
+
         if(previousRecordIndex != recordIndex)
         {
             foreach(SyncedLocationData locationData in linkedSyncedDataHolders)
             {
-                locationData.RecordLocation();
+                locationData.RecordLocation(recordingTime);
             }
 
             previousRecordIndex = recordIndex;
@@ -57,14 +64,19 @@ public class MotionCaptureController : UdonSharpBehaviour
 
     void ReplayingUpdate()
     {
-        float replayTime = Time.time - replayStartTime;
+        float replayTime = Time.time - ReplayStartTime;
 
+        SetReplayTime(replayTime);
+
+        timelineSlider.SetValueWithoutNotify(replayTime);
+    }
+
+    void SetReplayTime(float replayTime)
+    {
         foreach (SyncedLocationData locationData in linkedSyncedDataHolders)
         {
             locationData.SetReplayLocations(replayTime);
         }
-
-        timelineSlider.SetValueWithoutNotify(replayTime);
     }
 
     void UpdatePlayerNames()
@@ -139,20 +151,30 @@ public class MotionCaptureController : UdonSharpBehaviour
 
     public void StartRecording()
     {
+        if (recordingState == RecordingStates.playing) StopPlaying();
+
         recordingState = RecordingStates.recording;
         currentFixedUpdateIndex = 0;
         previousRecordIndex = 0;
+        ReplayStartTime = Time.time;
+
+        StartRecordingButton.gameObject.SetActive(false);
+        StopRecordingButton.gameObject.SetActive(true);
     }
 
     public void StopRecording()
     {
         recordingState = RecordingStates.idle;
+        StopRecordingButton.gameObject.SetActive(false);
+        StartRecordingButton.gameObject.SetActive(true);
     }
 
     public void StartPlaying()
     {
+        if(recordingState == RecordingStates.recording) StopRecording();
+
         recordingState = RecordingStates.playing;
-        replayStartTime = (timelineSlider.maxValue * 0.99f > timelineSlider.value) ? Time.time : Time.time - timelineSlider.value;
+        ReplayStartTime = (timelineSlider.maxValue * 0.99f > timelineSlider.value) ? Time.time : Time.time - timelineSlider.value;
 
         float maxReplayTime = 0;
 
@@ -162,11 +184,22 @@ public class MotionCaptureController : UdonSharpBehaviour
         }
 
         timelineSlider.maxValue = maxReplayTime;
+
+        StopPlayingButton.gameObject.SetActive(true);
+        StartPlayingButton.gameObject.SetActive(false);
     }
 
     public void StopPlaying()
     {
         recordingState = RecordingStates.idle;
+
+        StopPlayingButton.gameObject.SetActive(false);
+        StartPlayingButton.gameObject.SetActive(true);
+    }
+
+    public void UpdateTimeFromSlider()
+    {
+        SetReplayTime(timelineSlider.value);
     }
 
     //VRChat functions
@@ -186,7 +219,7 @@ public class MotionCaptureController : UdonSharpBehaviour
 
     public void UpdateSlider()
     {
-        replayStartTime = Time.time - timelineSlider.value;
+        ReplayStartTime = Time.time - timelineSlider.value;
 
         ReplayingUpdate();
     }
