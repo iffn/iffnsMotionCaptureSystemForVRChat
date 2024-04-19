@@ -104,6 +104,9 @@ MonoBehaviour:
   currentOwnerText: {fileID: 8140783767077999084}
   recordedTimeText: {fileID: 5673383907871833681}
   linkedAvatarModelMover: {fileID: 0}
+  recordedSteps: 0
+  timeStep: 0
+  bones: 0
 --- !u!114 &3263858363858007
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -123,7 +126,7 @@ MonoBehaviour:
   SynchronizePosition: 0
   AllowCollisionOwnershipTransfer: 0
   Reliable: 0
-  _syncMethod: 2
+  _syncMethod: 3
   serializedProgramAsset: {fileID: 11400000, guid: 1b68c3ce3e1b99943ade1614d743704e,
     type: 2}
   programSource: {fileID: 11400000, guid: 60ca18fad99ee3e4599e714bb14ca3e2, type: 2}

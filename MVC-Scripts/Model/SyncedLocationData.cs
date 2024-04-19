@@ -8,6 +8,7 @@ using VRC.SDKBase;
 using VRC.Udon;
 using static VRC.Core.ApiAvatar;
 
+[UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
 public class SyncedLocationData : UdonSharpBehaviour
 {
     //UI
