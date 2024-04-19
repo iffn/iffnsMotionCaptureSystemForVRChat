@@ -4,11 +4,11 @@ using UnityEngine.UI;
 using VRC.SDKBase;
 using VRC.Udon;
 
-public enum RecordingStates
+public enum TimelineStates
 {
     idle,
     recording,
-    playing
+    replaying
 }
 
 public class MotionCaptureController : UdonSharpBehaviour
@@ -19,15 +19,16 @@ public class MotionCaptureController : UdonSharpBehaviour
     [SerializeField] Slider timelineSlider;
     [SerializeField] Button StartRecordingButton;
     [SerializeField] Button StopRecordingButton;
-    [SerializeField] Button StartPlayingButton;
-    [SerializeField] Button StopPlayingButton;
+    [SerializeField] Button StartReplayingButton;
+    [SerializeField] Button StopReplayingButton;
 
     //Unity assignments
     [SerializeField] SyncedLocationData[] linkedSyncedDataHolders;
-    RecordingStates recordingState = RecordingStates.idle;
+    TimelineStates timelineState = TimelineStates.idle;
 
     //Recording data
-    int fixedUpdateBetweenRecordStates;
+    float maxReplayTime = 0;
+    int fixedUpdateBetweenRecordStates = 4;
     int previousRecordIndex;
     int currentFixedUpdateIndex;
 
@@ -37,10 +38,14 @@ public class MotionCaptureController : UdonSharpBehaviour
     //Internal functions
     void Setup()
     {
-        foreach (SyncedLocationData locaitonData in linkedSyncedDataHolders)
+        foreach (SyncedLocationData locationData in linkedSyncedDataHolders)
         {
-            locaitonData.ClearAndSetup(this);
+            locationData.ClearAndSetup(this);
         }
+
+        UpdateFixedUpdateText();
+        UpdateCurrentTimeText(0);
+        //UpdatePlayerNames(); //Probably not needed since OnPlayerJoin runs automatically
     }
 
     void RecordUpdate()
@@ -60,15 +65,30 @@ public class MotionCaptureController : UdonSharpBehaviour
         }
 
         currentFixedUpdateIndex++;
+
+        currentTimeText.text = $"{recordingTime}s";
     }
 
     void ReplayingUpdate()
     {
         float replayTime = Time.time - ReplayStartTime;
 
+        bool stop = false;
+
+        if(replayTime >= maxReplayTime)
+        {
+            replayTime = maxReplayTime;
+            stop = true;
+        }
+
         SetReplayTime(replayTime);
 
         timelineSlider.SetValueWithoutNotify(replayTime);
+
+        if (stop)
+        {
+            StopReplaying();
+        }
     }
 
     void SetReplayTime(float replayTime)
@@ -77,6 +97,13 @@ public class MotionCaptureController : UdonSharpBehaviour
         {
             locationData.SetReplayLocations(replayTime);
         }
+
+        UpdateCurrentTimeText(replayTime);
+    }
+
+    void UpdateCurrentTimeText(float time)
+    {
+        currentTimeText.text = $"{time}s";
     }
 
     void UpdatePlayerNames()
@@ -102,17 +129,19 @@ public class MotionCaptureController : UdonSharpBehaviour
     void Start()
     {
         Setup();
+
+        Debug.Log("New version");
     }
 
     private void Update()
     {
-        switch (recordingState)
+        switch (timelineState)
         {
-            case RecordingStates.idle:
+            case TimelineStates.idle:
                 break;
-            case RecordingStates.recording:
+            case TimelineStates.recording:
                 break;
-            case RecordingStates.playing:
+            case TimelineStates.replaying:
                 ReplayingUpdate();
                 break;
         }
@@ -120,81 +149,99 @@ public class MotionCaptureController : UdonSharpBehaviour
 
     private void FixedUpdate()
     {
-        switch (recordingState)
+        switch (timelineState)
         {
-            case RecordingStates.idle:
+            case TimelineStates.idle:
                 break;
-            case RecordingStates.recording:
+            case TimelineStates.recording:
                 RecordUpdate();
                 break;
-            case RecordingStates.playing:
+            case TimelineStates.replaying:
                 break;
         }
+    }
+
+    //External functions
+    public void UpdateMaxTime()
+    {
+        maxReplayTime = 0;
+
+        foreach (SyncedLocationData data in linkedSyncedDataHolders)
+        {
+            if (data.DoReplay && data.RecordedTime > maxReplayTime) maxReplayTime = data.RecordedTime;
+        }
+
+        timelineSlider.maxValue = maxReplayTime;
     }
 
     //UI events
     public void IncreaseFixedUpdateCounter()
     {
-        currentFixedUpdateIndex++;
+        fixedUpdateBetweenRecordStates++;
 
         UpdateFixedUpdateText();
     }
 
     public void DecreaseFixedUpdateCounter()
     {
-        currentFixedUpdateIndex--;
+        fixedUpdateBetweenRecordStates--;
 
-        if (currentFixedUpdateIndex < 1) currentFixedUpdateIndex = 1;
+        if (fixedUpdateBetweenRecordStates < 1) fixedUpdateBetweenRecordStates = 1;
 
         UpdateFixedUpdateText();
     }
 
     public void StartRecording()
     {
-        if (recordingState == RecordingStates.playing) StopPlaying();
+        if (timelineState == TimelineStates.replaying) StopReplaying();
 
-        recordingState = RecordingStates.recording;
+        timelineSlider.SetValueWithoutNotify(timelineSlider.maxValue); //ToDo: Set slider to max recordable value
+
+        timelineState = TimelineStates.recording;
         currentFixedUpdateIndex = 0;
         previousRecordIndex = 0;
         ReplayStartTime = Time.time;
 
         StartRecordingButton.gameObject.SetActive(false);
         StopRecordingButton.gameObject.SetActive(true);
+
+        foreach (SyncedLocationData syncedLocation in linkedSyncedDataHolders)
+        {
+            syncedLocation.ClearBeforeRecording();
+        }
     }
 
     public void StopRecording()
     {
-        recordingState = RecordingStates.idle;
+        timelineState = TimelineStates.idle;
         StopRecordingButton.gameObject.SetActive(false);
         StartRecordingButton.gameObject.SetActive(true);
+
+        UpdateMaxTime();
+
+        foreach (SyncedLocationData syncedLocation in linkedSyncedDataHolders)
+        {
+            syncedLocation.TransferData();
+        }
     }
 
-    public void StartPlaying()
+    public void StartReplaying()
     {
-        if(recordingState == RecordingStates.recording) StopRecording();
+        if(timelineState == TimelineStates.recording) StopRecording();
 
-        recordingState = RecordingStates.playing;
+        timelineState = TimelineStates.replaying;
         ReplayStartTime = (timelineSlider.maxValue * 0.99f > timelineSlider.value) ? Time.time : Time.time - timelineSlider.value;
 
-        float maxReplayTime = 0;
-
-        foreach(SyncedLocationData data in linkedSyncedDataHolders)
-        {
-            if (data.DoReplay && data.RecordTime > maxReplayTime) maxReplayTime = data.RecordTime; 
-        }
-
-        timelineSlider.maxValue = maxReplayTime;
-
-        StopPlayingButton.gameObject.SetActive(true);
-        StartPlayingButton.gameObject.SetActive(false);
+        StopReplayingButton.gameObject.SetActive(true);
+        StartReplayingButton.gameObject.SetActive(false);
     }
 
-    public void StopPlaying()
+    public void StopReplaying()
     {
-        recordingState = RecordingStates.idle;
+        timelineState = TimelineStates.idle;
 
-        StopPlayingButton.gameObject.SetActive(false);
-        StartPlayingButton.gameObject.SetActive(true);
+        StopReplayingButton.gameObject.SetActive(false);
+        StartReplayingButton.gameObject.SetActive(true);
     }
 
     public void UpdateTimeFromSlider()

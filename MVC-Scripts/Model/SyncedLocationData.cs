@@ -6,6 +6,7 @@ using UnityEngine.UI;
 using VRC.SDK3.Data;
 using VRC.SDKBase;
 using VRC.Udon;
+using static VRC.Core.ApiAvatar;
 
 public class SyncedLocationData : UdonSharpBehaviour
 {
@@ -19,21 +20,21 @@ public class SyncedLocationData : UdonSharpBehaviour
     [SerializeField] AvatarModelMover linkedAvatarModelMover;
 
     //Synced variables
-    [UdonSynced] Vector3[] syncedRecordedAvatarPositions;
-    [UdonSynced] Quaternion[] syncedRecorderBoneRotations;
-    [UdonSynced] float recordingTime;
+    [UdonSynced] Vector3[] syncedRecordedAvatarPositions = new Vector3[0];
+    [UdonSynced] Quaternion[] syncedRecorderBoneRotations = new Quaternion[0];
+    [UdonSynced] float recordedTime;
     [UdonSynced] float syncedPlayerHeight;
 
-    public float RecordTime
+    public float RecordedTime
     {
         get
         {
-            return recordingTime;
+            return recordedTime;
         }
         set
         {
-            recordingTime = value;
-            recordedTimeText.text = $"{recordedTimeText}s";
+            recordedTime = value;
+            SetRecordingTimeText();
         }
     }
 
@@ -46,19 +47,42 @@ public class SyncedLocationData : UdonSharpBehaviour
     //Runtime variables
     bool doRecordIfOwner = false;
     public bool DoReplay { get; private set; } = false;
-    VRCPlayerApi linkedPlayer;
+    VRCPlayerApi selectedPlayer;
     VRCPlayerApi[] players;
-    int currentPlayerIndex;
+    int selectedPlayerInPlayerIndex;
 
     //Internal functions
-    VRCPlayerApi LinkedPlayer
+    VRCPlayerApi SelectedPlayer
     {
         set
         {
-            this.linkedPlayer = value;
-            currentPlayerText.text = linkedPlayer.displayName;
-
+            this.selectedPlayer = value;
+            SetSelectedPlayerText();
         }
+    }
+
+    void SetOwnerText(VRCPlayerApi owner)
+    {
+        currentOwnerText.text = PlayerText(owner);
+    }
+
+    void SetRecordingTimeText()
+    {
+        recordedTimeText.text = $"{recordedTime}s";
+    }
+
+    void SetSelectedPlayerText()
+    {
+        currentPlayerText.text = PlayerText(selectedPlayer);
+    }
+
+    static string PlayerText(VRCPlayerApi player)
+    {
+#if UNITY_EDITOR
+        return $"{player.displayName}{(player.isLocal ? " (you)" : "")}"; //Local player in editor already contains player ID in []
+#else
+        return $"[{player.playerId}] {player.displayName}{(player.isLocal ? " (you)" : "")}";
+#endif
     }
 
     //Unity functions
@@ -86,15 +110,34 @@ public class SyncedLocationData : UdonSharpBehaviour
         this.linkedController = linkedController;
 
         //Default values
-        linkedPlayer = localPlayer;
+        if(selectedPlayer == null) selectedPlayer = localPlayer;
+
+        //UI
+        SetOwnerText(Networking.GetOwner(gameObject));
+        SetRecordingTimeText();
+        SetSelectedPlayerText();
 
         //Setups
         linkedAvatarModelMover.Setup();
     }
 
+    public void ClearBeforeRecording()
+    {
+        if (!Networking.IsOwner(gameObject) || !doRecordIfOwner) return;
+
+        recordedAvatarPositions = new DataList();
+        recorderBoneRotations = new DataList();
+
+    }
+
     public void UpdatePlayerList(VRCPlayerApi[] players)
     {
         this.players = players;
+
+        for(int i = 0; i < players.Length; i++)
+        {
+            if (players[i] == selectedPlayer) selectedPlayerInPlayerIndex = i; 
+        }
     }
 
     public void SetPlayerAsOwner()
@@ -102,7 +145,7 @@ public class SyncedLocationData : UdonSharpBehaviour
         if (!Networking.IsOwner(gameObject)) Networking.SetOwner(localPlayer, gameObject);
     }
 
-    public void TransferData(bool sync)
+    public void TransferData()
     {
         if (!Networking.IsOwner(gameObject) || !doRecordIfOwner) return;
 
@@ -130,10 +173,10 @@ public class SyncedLocationData : UdonSharpBehaviour
         }
 
         //Height
-        syncedPlayerHeight = linkedPlayer.GetAvatarEyeHeightAsMeters();
+        syncedPlayerHeight = selectedPlayer.GetAvatarEyeHeightAsMeters();
 
         //Sync
-        if (sync) RequestSerialization();
+        RequestSerialization();
     }
 
     public void RecordLocation(float timeForReference)
@@ -146,31 +189,31 @@ public class SyncedLocationData : UdonSharpBehaviour
         }
 
         //Vector3 avatarPosition = (linkedPlayer.isLocal) ? linkedPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.AvatarRoot).position : linkedPlayer.GetPosition(); //Only needed for rotation I think
-        Vector3 avatarPosition = linkedPlayer.GetPosition();
+        Vector3 avatarPosition = selectedPlayer.GetPosition();
         Quaternion[] boneRotations = new Quaternion[]
         {
-            linkedPlayer.GetBoneRotation(HumanBodyBones.Hips),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.LeftUpperLeg),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.RightUpperLeg),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.LeftLowerLeg),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.RightLowerLeg),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.LeftFoot),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.RightFoot),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.Spine),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.Chest),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.UpperChest),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.Neck),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.Head),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.LeftShoulder),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.RightShoulder),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.LeftUpperArm),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.RightUpperArm),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.LeftLowerArm),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.RightLowerArm),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.LeftHand),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.RightHand),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.LeftToes),
-            linkedPlayer.GetBoneRotation(HumanBodyBones.RightToes),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.Hips),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftUpperLeg),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.RightUpperLeg),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftLowerLeg),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.RightLowerLeg),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftFoot),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.RightFoot),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.Spine),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.Chest),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.UpperChest),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.Neck),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.Head),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftShoulder),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.RightShoulder),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftUpperArm),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.RightUpperArm),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftLowerArm),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.RightLowerArm),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftHand),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.RightHand),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftToes),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.RightToes),
             //linkedPlayer.GetBoneRotation(HumanBodyBones.LeftEye),
             //linkedPlayer.GetBoneRotation(HumanBodyBones.RightEye),
         };
@@ -178,7 +221,7 @@ public class SyncedLocationData : UdonSharpBehaviour
         recordedAvatarPositions.Add(new DataToken((object)avatarPosition));
         recorderBoneRotations.Add(new DataToken((object)boneRotations));
 
-        recordingTime = timeForReference;
+        RecordedTime = timeForReference;
     }
 
     public void SetReplayLocations(float replayTime)
@@ -187,14 +230,13 @@ public class SyncedLocationData : UdonSharpBehaviour
 
         //To move out
         int recordedSteps = syncedRecordedAvatarPositions.Length;
-        float timeStep = recordingTime / recordedSteps;
+        float timeStep = recordedTime / recordedSteps;
         int bones = syncedRecorderBoneRotations.Length / syncedRecordedAvatarPositions.Length;
 
         //Step
-        int earlyStep = (int)(recordingTime / replayTime);
-        if (earlyStep < 0) earlyStep = 0;
+        int earlyStep = (replayTime > 0f) ? ((int)(recordedTime / replayTime)) : 0;
+        if(earlyStep > recordedSteps - 2) earlyStep = recordedSteps - 2;
         int lateStep = earlyStep + 1;
-        if (lateStep > recordedSteps - 1) lateStep = recordedSteps - 1;
 
         float subStepLerpValue = Mathf.Clamp01((replayTime - earlyStep * timeStep) / timeStep);
 
@@ -221,27 +263,30 @@ public class SyncedLocationData : UdonSharpBehaviour
     //UI events
     public void IncreasePlayerIndex()
     {
-        currentPlayerIndex++;
+        selectedPlayerInPlayerIndex++;
 
-        if(currentPlayerIndex >= players.Length) currentPlayerIndex = 0;
+        if(selectedPlayerInPlayerIndex >= players.Length) selectedPlayerInPlayerIndex = 0;
 
-        LinkedPlayer = players[currentPlayerIndex];
+        SelectedPlayer = players[selectedPlayerInPlayerIndex];
     }
 
     public void DecreasePlayerIndex()
     {
-        currentPlayerIndex--;
+        selectedPlayerInPlayerIndex--;
 
-        if (currentPlayerIndex < 0) currentPlayerIndex = players.Length - 1;
+        if (selectedPlayerInPlayerIndex < 0) selectedPlayerInPlayerIndex = players.Length - 1;
 
-        LinkedPlayer = players[currentPlayerIndex];
+        SelectedPlayer = players[selectedPlayerInPlayerIndex];
     }
 
     public void SelectOwnPlayerIndex()
     {
-        currentPlayerIndex = localPlayer.playerId;
+        for(int i = 0; i < players.Length; i++)
+        {
+            if (players[i].isLocal) selectedPlayerInPlayerIndex = i;
+        }
 
-        LinkedPlayer = players[currentPlayerIndex];
+        SelectedPlayer = localPlayer;
     }
 
     public void UpdateDoRecordIfOwnerToggle()
@@ -266,13 +311,15 @@ public class SyncedLocationData : UdonSharpBehaviour
     {
         base.OnDeserialization();
 
-        RecordTime = recordingTime; //Update text
+        RecordedTime = recordedTime; //Update text
 
         linkedAvatarModelMover.transform.localScale = syncedPlayerHeight * Vector3.one;
+
+        linkedController.UpdateMaxTime();
     }
 
     public override void OnOwnershipTransferred(VRCPlayerApi player)
     {
-        currentOwnerText.text = $"[{player.playerId}] {player.displayName}{(player.isLocal ? " (you)" : "")}";
+        SetOwnerText(player);
     }
 }
