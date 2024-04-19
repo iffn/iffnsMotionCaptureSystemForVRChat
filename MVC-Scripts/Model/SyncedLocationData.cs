@@ -47,11 +47,21 @@ public class SyncedLocationData : UdonSharpBehaviour
 
     //Runtime variables
     bool doRecordIfOwner = false;
-    public bool DoReplay { get; private set; } = false;
+    public bool DoReplay
+    {
+        get
+        {
+            return doReplayToggle.isOn;
+        }
+        set
+        {
+            doReplayToggle.SetIsOnWithoutNotify(value);
+        }
+    }
     VRCPlayerApi selectedPlayer;
     VRCPlayerApi[] players;
     int selectedPlayerInPlayerIndex;
-    
+
     public int recordedSteps;
     public float timeStep;
     public int bones;
@@ -99,8 +109,8 @@ public class SyncedLocationData : UdonSharpBehaviour
     void PrepareReplayData()
     {
         recordedSteps = syncedRecordedHipPositions.Length;
-        
-        if(recordedSteps == 0)
+
+        if (recordedSteps == 0)
         {
             SetDummyData();
         }
@@ -122,7 +132,7 @@ public class SyncedLocationData : UdonSharpBehaviour
 
     void SetOwnerText(VRCPlayerApi owner)
     {
-        currentOwnerText.text = PlayerText(owner);
+        currentOwnerText.text = MotionCaptureController.PlayerText(owner);
     }
 
     void SetRecordingTimeText()
@@ -132,16 +142,7 @@ public class SyncedLocationData : UdonSharpBehaviour
 
     void SetSelectedPlayerText()
     {
-        currentPlayerText.text = PlayerText(selectedPlayer);
-    }
-
-    static string PlayerText(VRCPlayerApi player)
-    {
-#if UNITY_EDITOR
-        return $"{player.displayName}{(player.isLocal ? " (you)" : "")}"; //Local player in editor already contains player ID in []
-#else
-        return $"[{player.playerId}] {player.displayName}{(player.isLocal ? " (you)" : "")}";
-#endif
+        currentPlayerText.text = MotionCaptureController.PlayerText(selectedPlayer);
     }
 
     //Unity functions
@@ -169,7 +170,7 @@ public class SyncedLocationData : UdonSharpBehaviour
         this.linkedController = linkedController;
 
         //Default values
-        if(selectedPlayer == null) selectedPlayer = localPlayer;
+        if (selectedPlayer == null) selectedPlayer = localPlayer;
 
         //UI
         SetOwnerText(Networking.GetOwner(gameObject));
@@ -193,9 +194,9 @@ public class SyncedLocationData : UdonSharpBehaviour
     {
         this.players = players;
 
-        for(int i = 0; i < players.Length; i++)
+        for (int i = 0; i < players.Length; i++)
         {
-            if (players[i] == selectedPlayer) selectedPlayerInPlayerIndex = i; 
+            if (players[i] == selectedPlayer) selectedPlayerInPlayerIndex = i;
         }
     }
 
@@ -233,7 +234,7 @@ public class SyncedLocationData : UdonSharpBehaviour
 
         //Height
         syncedPlayerHeight = selectedPlayer.GetAvatarEyeHeightAsMeters();
-        
+
         //Record data
         PrepareReplayData();
 
@@ -266,7 +267,7 @@ public class SyncedLocationData : UdonSharpBehaviour
 
         //Step
         int earlyStep = (replayTime > 0f) ? ((int)(replayTime / timeStep)) : 0;
-        if(earlyStep > recordedSteps - 2)
+        if (earlyStep > recordedSteps - 2)
         {
             if (recordedSteps == 1) return;
             else if (recordedSteps == 1)
@@ -304,7 +305,7 @@ public class SyncedLocationData : UdonSharpBehaviour
     {
         selectedPlayerInPlayerIndex++;
 
-        if(selectedPlayerInPlayerIndex >= players.Length) selectedPlayerInPlayerIndex = 0;
+        if (selectedPlayerInPlayerIndex >= players.Length) selectedPlayerInPlayerIndex = 0;
 
         SelectedPlayer = players[selectedPlayerInPlayerIndex];
     }
@@ -320,7 +321,7 @@ public class SyncedLocationData : UdonSharpBehaviour
 
     public void SelectOwnPlayerIndex()
     {
-        for(int i = 0; i < players.Length; i++)
+        for (int i = 0; i < players.Length; i++)
         {
             if (players[i].isLocal) selectedPlayerInPlayerIndex = i;
         }
@@ -333,11 +334,20 @@ public class SyncedLocationData : UdonSharpBehaviour
         doRecordIfOwner = doRecordIfOwnerToggle.isOn;
     }
 
-    public void UpdateDoReplayToggleToggle()
+    public void UpdateDoReplayToggle()
     {
-        DoReplay = doReplayToggle.isOn;
+        if (linkedController.AllowReplayChange)
+        {
+            DoReplay = doReplayToggle.isOn;
 
-        linkedAvatarModelMover.gameObject.SetActive(DoReplay);
+            linkedAvatarModelMover.gameObject.SetActive(DoReplay);
+
+            linkedController.UpdateReplayStatesFromSync();
+        }
+        else
+        {
+            linkedController.RestoreReplayStates();
+        }
     }
 
     public void RequestOwnership()
@@ -362,5 +372,12 @@ public class SyncedLocationData : UdonSharpBehaviour
     public override void OnOwnershipTransferred(VRCPlayerApi player)
     {
         SetOwnerText(player);
+    }
+
+    public override void OnAvatarEyeHeightChanged(VRCPlayerApi player, float prevEyeHeightAsMeters)
+    {
+        if (player != selectedPlayer) return;
+
+        linkedAvatarModelMover.transform.localScale = player.GetAvatarEyeHeightAsMeters() * Vector3.one;
     }
 }

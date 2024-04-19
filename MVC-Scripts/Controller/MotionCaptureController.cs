@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using VRC.SDKBase;
 using VRC.Udon;
+using static VRC.Core.ApiAvatar;
 
 public enum TimelineStates
 {
@@ -18,46 +19,60 @@ public class MotionCaptureController : UdonSharpBehaviour
     [SerializeField] TMPro.TextMeshProUGUI currentFixedUpdateText;
     [SerializeField] TMPro.TextMeshProUGUI currentTimeText;
     [SerializeField] Slider timelineSlider;
-    [SerializeField] Button StartRecordingButton;
-    [SerializeField] Button StopRecordingButton;
-    [SerializeField] Button StartReplayingButton;
-    [SerializeField] Button StopReplayingButton;
+    [SerializeField] Button startRecordingButton;
+    [SerializeField] Button stopRecordingButton;
+    [SerializeField] Button startReplayingButton;
+    [SerializeField] Button stopReplayingButton;
+    [SerializeField] Toggle useSyncedReplayDataToggle;
+    [SerializeField] TMPro.TextMeshProUGUI currentOwnerText;
+
+    [UdonSynced] float syncedTime;
+    [UdonSynced] bool[] replayElements = new bool[0];
 
     //Unity assignments
     [SerializeField] SyncedLocationData[] linkedSyncedDataHolders;
     TimelineStates timelineState = TimelineStates.idle;
+    
+    const float smoothTime = 0.068f;
 
     //Recording data
     float maxReplayTime = 0;
     int fixedUpdateBetweenRecordStates = 4;
     int previousRecordIndex;
     int currentFixedUpdateIndex;
+    VRCPlayerApi localPlayer;
 
     //Replay data
     public float ReplayStartTime { get; private set; }
+    float sliderVelocity;
 
     //Internal functions
     void Setup()
     {
+        localPlayer = Networking.LocalPlayer;
+
         foreach (SyncedLocationData locationData in linkedSyncedDataHolders)
         {
             locationData.ClearAndSetup(this);
         }
 
+        replayElements = new bool[linkedSyncedDataHolders.Length];
+
         UpdateFixedUpdateText();
         UpdateCurrentTimeText(0);
+        SetOwnerText(Networking.GetOwner(gameObject));
         //UpdatePlayerNames(); //Probably not needed since OnPlayerJoin runs automatically
     }
 
     void RecordUpdate()
     {
         int recordIndex = currentFixedUpdateIndex / fixedUpdateBetweenRecordStates;
-        
+
         float recordingTime = Time.time - ReplayStartTime;
 
-        if(previousRecordIndex != recordIndex)
+        if (previousRecordIndex != recordIndex)
         {
-            foreach(SyncedLocationData locationData in linkedSyncedDataHolders)
+            foreach (SyncedLocationData locationData in linkedSyncedDataHolders)
             {
                 locationData.RecordLocation(recordingTime);
             }
@@ -76,7 +91,7 @@ public class MotionCaptureController : UdonSharpBehaviour
 
         bool stop = false;
 
-        if(replayTime >= maxReplayTime)
+        if (replayTime >= maxReplayTime)
         {
             replayTime = maxReplayTime;
             stop = true;
@@ -123,7 +138,21 @@ public class MotionCaptureController : UdonSharpBehaviour
 
     void UpdateFixedUpdateText()
     {
-        currentFixedUpdateText.text = $"{fixedUpdateBetweenRecordStates}/{Mathf.RoundToInt(1f/ Time.fixedDeltaTime)}, every {Time.fixedDeltaTime * fixedUpdateBetweenRecordStates * 1000} ms, {1 / (Time.fixedDeltaTime * fixedUpdateBetweenRecordStates)} times/s";
+        currentFixedUpdateText.text = $"{fixedUpdateBetweenRecordStates}/{Mathf.RoundToInt(1f / Time.fixedDeltaTime)}, every {Time.fixedDeltaTime * fixedUpdateBetweenRecordStates * 1000} ms, {1 / (Time.fixedDeltaTime * fixedUpdateBetweenRecordStates)} times/s";
+    }
+
+    void SetOwnerText(VRCPlayerApi owner)
+    {
+        currentOwnerText.text = PlayerText(owner);
+    }
+
+    public static string PlayerText(VRCPlayerApi player)
+    {
+#if UNITY_EDITOR
+        return $"{player.displayName}{(player.isLocal ? " (you)" : "")}"; //Local player in editor already contains player ID in []
+#else
+        return $"[{player.playerId}] {player.displayName}{(player.isLocal ? " (you)" : "")}";
+#endif
     }
 
     //Unity functions
@@ -136,15 +165,24 @@ public class MotionCaptureController : UdonSharpBehaviour
 
     private void Update()
     {
-        switch (timelineState)
+        if(AllowReplayChange)
         {
-            case TimelineStates.idle:
-                break;
-            case TimelineStates.recording:
-                break;
-            case TimelineStates.replaying:
-                ReplayingUpdate();
-                break;
+            switch (timelineState)
+            {
+                case TimelineStates.idle:
+                    break;
+                case TimelineStates.recording:
+                    break;
+                case TimelineStates.replaying:
+                    ReplayingUpdate();
+                    break;
+            }
+        }
+        else
+        {
+            float newSliderValue = Mathf.SmoothDamp(timelineSlider.value, syncedTime, ref sliderVelocity, smoothTime);
+
+            timelineSlider.SetValueWithoutNotify(newSliderValue);
         }
     }
 
@@ -175,6 +213,39 @@ public class MotionCaptureController : UdonSharpBehaviour
         timelineSlider.maxValue = maxReplayTime;
     }
 
+    public bool AllowReplayChange
+    {
+        get
+        {
+            return Networking.IsOwner(gameObject) || !useSyncedReplayDataToggle.isOn;
+        }
+    }
+
+    public void UpdateReplayStatesFromSync()
+    {
+        if (AllowReplayChange)
+        {
+            for (int i = 0; i < linkedSyncedDataHolders.Length; i++)
+            {
+                replayElements[i] = linkedSyncedDataHolders[i].DoReplay;
+            }
+
+            RequestSerialization();
+        }
+        else
+        {
+            RestoreReplayStates();
+        }
+    }
+
+    public void RestoreReplayStates()
+    {
+        for(int i = 0; i < linkedSyncedDataHolders.Length; i++)
+        {
+            linkedSyncedDataHolders[i].DoReplay = replayElements[i];
+        }
+    }
+
     //UI events
     public void IncreaseFixedUpdateCounter()
     {
@@ -196,6 +267,8 @@ public class MotionCaptureController : UdonSharpBehaviour
     {
         if (timelineState == TimelineStates.replaying) StopReplaying();
 
+        if (!AllowReplayChange) return;
+
         timelineSlider.SetValueWithoutNotify(timelineSlider.maxValue); //ToDo: Set slider to max recordable value
 
         timelineState = TimelineStates.recording;
@@ -203,8 +276,8 @@ public class MotionCaptureController : UdonSharpBehaviour
         previousRecordIndex = 0;
         ReplayStartTime = Time.time;
 
-        StartRecordingButton.gameObject.SetActive(false);
-        StopRecordingButton.gameObject.SetActive(true);
+        startRecordingButton.gameObject.SetActive(false);
+        stopRecordingButton.gameObject.SetActive(true);
 
         foreach (SyncedLocationData syncedLocation in linkedSyncedDataHolders)
         {
@@ -215,8 +288,8 @@ public class MotionCaptureController : UdonSharpBehaviour
     public void StopRecording()
     {
         timelineState = TimelineStates.idle;
-        StopRecordingButton.gameObject.SetActive(false);
-        StartRecordingButton.gameObject.SetActive(true);
+        stopRecordingButton.gameObject.SetActive(false);
+        startRecordingButton.gameObject.SetActive(true);
 
         UpdateMaxTime();
         timelineSlider.SetValueWithoutNotify(0);
@@ -229,26 +302,45 @@ public class MotionCaptureController : UdonSharpBehaviour
 
     public void StartReplaying()
     {
-        if(timelineState == TimelineStates.recording) StopRecording();
+        if (timelineState == TimelineStates.recording) StopRecording();
+
+        if (!AllowReplayChange) return;
 
         timelineState = TimelineStates.replaying;
         ReplayStartTime = (timelineSlider.maxValue * 0.99f > timelineSlider.value) ? Time.time : Time.time - timelineSlider.value;
 
-        StopReplayingButton.gameObject.SetActive(true);
-        StartReplayingButton.gameObject.SetActive(false);
+        stopReplayingButton.gameObject.SetActive(true);
+        startReplayingButton.gameObject.SetActive(false);
     }
 
     public void StopReplaying()
     {
         timelineState = TimelineStates.idle;
 
-        StopReplayingButton.gameObject.SetActive(false);
-        StartReplayingButton.gameObject.SetActive(true);
+        stopReplayingButton.gameObject.SetActive(false);
+        startReplayingButton.gameObject.SetActive(true);
     }
 
     public void UpdateTimeFromSlider()
     {
+        if (!Networking.IsOwner(gameObject) && useSyncedReplayDataToggle.isOn)
+        {
+            timelineSlider.SetValueWithoutNotify(syncedTime);
+            return;
+        }
+
         SetReplayTime(timelineSlider.value);
+
+        if (Networking.IsOwner(gameObject))
+        {
+            syncedTime = timelineSlider.value;
+            RequestSerialization();
+        }
+    }
+
+    public void RequestOwnership()
+    {
+        if (!Networking.IsOwner(gameObject)) Networking.SetOwner(localPlayer, gameObject);
     }
 
     //VRChat functions
@@ -271,5 +363,40 @@ public class MotionCaptureController : UdonSharpBehaviour
         ReplayStartTime = Time.time - timelineSlider.value;
 
         ReplayingUpdate();
+    }
+
+    public override void OnOwnershipTransferred(VRCPlayerApi player)
+    {
+        base.OnOwnershipTransferred(player);
+
+        SetOwnerText(player);
+
+        if (AllowReplayChange)
+        {
+            UpdateReplayStatesFromSync();
+
+            RequestSerialization();
+        }
+        else
+        {
+            switch (timelineState)
+            {
+                case TimelineStates.idle:
+                    break;
+                case TimelineStates.recording:
+                    StopRecording();
+                    break;
+                case TimelineStates.replaying:
+                    StopReplaying();
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    public override void OnDeserialization()
+    {
+        RestoreReplayStates();
     }
 }
