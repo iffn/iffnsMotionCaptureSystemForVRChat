@@ -218,10 +218,11 @@ public class MotionCaptureController : UdonSharpBehaviour
         StartRecordingButton.gameObject.SetActive(true);
 
         UpdateMaxTime();
+        timelineSlider.SetValueWithoutNotify(0);
 
         foreach (SyncedLocationData syncedLocation in linkedSyncedDataHolders)
         {
-            syncedLocation.TransferData();
+            syncedLocation.FinishAndTransferData();
         }
     }
 

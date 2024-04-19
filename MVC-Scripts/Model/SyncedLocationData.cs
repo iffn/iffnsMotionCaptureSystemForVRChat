@@ -21,7 +21,7 @@ public class SyncedLocationData : UdonSharpBehaviour
 
     //Synced variables
     [UdonSynced] Vector3[] syncedRecordedAvatarPositions = new Vector3[0];
-    [UdonSynced] Quaternion[] syncedRecorderBoneRotations = new Quaternion[0];
+    [UdonSynced] Quaternion[] syncedRecordedBoneRotations = new Quaternion[0];
     [UdonSynced] float recordedTime;
     [UdonSynced] float syncedPlayerHeight;
 
@@ -50,8 +50,66 @@ public class SyncedLocationData : UdonSharpBehaviour
     VRCPlayerApi selectedPlayer;
     VRCPlayerApi[] players;
     int selectedPlayerInPlayerIndex;
+    
+    public int recordedSteps;
+    public float timeStep;
+    public int bones;
 
     //Internal functions
+    void SetDummyData()
+    {
+        syncedRecordedAvatarPositions = new Vector3[] { Vector3.zero };
+        syncedRecordedBoneRotations = GetBoneRotations();
+        timeStep = 1;
+        bones = syncedRecordedBoneRotations.Length;
+    }
+
+    Quaternion[] GetBoneRotations()
+    {
+        return new Quaternion[]
+        {
+            selectedPlayer.GetBoneRotation(HumanBodyBones.Hips),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftUpperLeg),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.RightUpperLeg),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftLowerLeg),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.RightLowerLeg),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftFoot),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.RightFoot),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.Spine),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.Chest),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.UpperChest),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.Neck),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.Head),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftShoulder),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.RightShoulder),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftUpperArm),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.RightUpperArm),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftLowerArm),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.RightLowerArm),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftHand),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.RightHand),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftToes),
+            selectedPlayer.GetBoneRotation(HumanBodyBones.RightToes),
+            //linkedPlayer.GetBoneRotation(HumanBodyBones.LeftEye),
+            //linkedPlayer.GetBoneRotation(HumanBodyBones.RightEye),
+        };
+    }
+
+    void PrepareReplayData()
+    {
+        recordedSteps = syncedRecordedAvatarPositions.Length;
+        
+        if(recordedSteps == 0)
+        {
+            SetDummyData();
+        }
+        else
+        {
+            timeStep = recordedTime / recordedSteps;
+            bones = syncedRecordedBoneRotations.Length / syncedRecordedAvatarPositions.Length;
+        }
+    }
+
     VRCPlayerApi SelectedPlayer
     {
         set
@@ -145,7 +203,7 @@ public class SyncedLocationData : UdonSharpBehaviour
         if (!Networking.IsOwner(gameObject)) Networking.SetOwner(localPlayer, gameObject);
     }
 
-    public void TransferData()
+    public void FinishAndTransferData()
     {
         if (!Networking.IsOwner(gameObject) || !doRecordIfOwner) return;
 
@@ -159,7 +217,7 @@ public class SyncedLocationData : UdonSharpBehaviour
 
         //Rotations
         Quaternion[] firstRotationElement = (Quaternion[])recorderBoneRotations[0].Reference;
-        syncedRecorderBoneRotations = new Quaternion[firstRotationElement.Length * recorderBoneRotations.Count];
+        syncedRecordedBoneRotations = new Quaternion[firstRotationElement.Length * recorderBoneRotations.Count];
 
         int count = 0;
         for (int i = 0; i < recorderBoneRotations.Count; i++)
@@ -168,12 +226,15 @@ public class SyncedLocationData : UdonSharpBehaviour
 
             for (int j = 0; j < firstRotationElement.Length; j++)
             {
-                syncedRecorderBoneRotations[count++] = currentRotationElement[j];
+                syncedRecordedBoneRotations[count++] = currentRotationElement[j];
             }
         }
 
         //Height
         syncedPlayerHeight = selectedPlayer.GetAvatarEyeHeightAsMeters();
+        
+        //Record data
+        PrepareReplayData();
 
         //Sync
         RequestSerialization();
@@ -190,33 +251,7 @@ public class SyncedLocationData : UdonSharpBehaviour
 
         //Vector3 avatarPosition = (linkedPlayer.isLocal) ? linkedPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.AvatarRoot).position : linkedPlayer.GetPosition(); //Only needed for rotation I think
         Vector3 avatarPosition = selectedPlayer.GetPosition();
-        Quaternion[] boneRotations = new Quaternion[]
-        {
-            selectedPlayer.GetBoneRotation(HumanBodyBones.Hips),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftUpperLeg),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.RightUpperLeg),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftLowerLeg),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.RightLowerLeg),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftFoot),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.RightFoot),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.Spine),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.Chest),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.UpperChest),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.Neck),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.Head),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftShoulder),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.RightShoulder),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftUpperArm),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.RightUpperArm),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftLowerArm),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.RightLowerArm),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftHand),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.RightHand),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.LeftToes),
-            selectedPlayer.GetBoneRotation(HumanBodyBones.RightToes),
-            //linkedPlayer.GetBoneRotation(HumanBodyBones.LeftEye),
-            //linkedPlayer.GetBoneRotation(HumanBodyBones.RightEye),
-        };
+        Quaternion[] boneRotations = GetBoneRotations();
 
         recordedAvatarPositions.Add(new DataToken((object)avatarPosition));
         recorderBoneRotations.Add(new DataToken((object)boneRotations));
@@ -228,14 +263,17 @@ public class SyncedLocationData : UdonSharpBehaviour
     {
         if (!DoReplay) return;
 
-        //To move out
-        int recordedSteps = syncedRecordedAvatarPositions.Length;
-        float timeStep = recordedTime / recordedSteps;
-        int bones = syncedRecorderBoneRotations.Length / syncedRecordedAvatarPositions.Length;
-
         //Step
-        int earlyStep = (replayTime > 0f) ? ((int)(recordedTime / replayTime)) : 0;
-        if(earlyStep > recordedSteps - 2) earlyStep = recordedSteps - 2;
+        int earlyStep = (replayTime > 0f) ? ((int)(replayTime / timeStep)) : 0;
+        if(earlyStep > recordedSteps - 2)
+        {
+            if (recordedSteps == 1) return;
+            else if (recordedSteps == 1)
+            {
+                linkedAvatarModelMover.SetAvatarData(syncedRecordedAvatarPositions[0], syncedRecordedBoneRotations);
+            }
+            earlyStep = recordedSteps - 2;
+        }
         int lateStep = earlyStep + 1;
 
         float subStepLerpValue = Mathf.Clamp01((replayTime - earlyStep * timeStep) / timeStep);
@@ -250,8 +288,8 @@ public class SyncedLocationData : UdonSharpBehaviour
 
         for (int i = 0; i < bones; i++)
         {
-            Quaternion earlyBoneRotation = syncedRecorderBoneRotations[earlyStep * bones + i];
-            Quaternion lateBoneRotation = syncedRecorderBoneRotations[lateStep * bones + i];
+            Quaternion earlyBoneRotation = syncedRecordedBoneRotations[earlyStep * bones + i];
+            Quaternion lateBoneRotation = syncedRecordedBoneRotations[lateStep * bones + i];
 
             boneRotations[i] = Quaternion.Lerp(earlyBoneRotation, lateBoneRotation, subStepLerpValue);
         }
@@ -316,6 +354,8 @@ public class SyncedLocationData : UdonSharpBehaviour
         linkedAvatarModelMover.transform.localScale = syncedPlayerHeight * Vector3.one;
 
         linkedController.UpdateMaxTime();
+
+        PrepareReplayData();
     }
 
     public override void OnOwnershipTransferred(VRCPlayerApi player)
