@@ -6,6 +6,7 @@ using UnityEngine.UI;
 using VRC.SDK3.Data;
 using VRC.SDKBase;
 using VRC.Udon;
+using VRC.Udon.Common;
 using static VRC.Core.ApiAvatar;
 
 [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
@@ -46,7 +47,6 @@ public class SyncedLocationData : UdonSharpBehaviour
     VRCPlayerApi localPlayer;
 
     //Runtime variables
-    bool doRecordIfOwner = false;
     public bool DoReplay
     {
         get
@@ -56,6 +56,7 @@ public class SyncedLocationData : UdonSharpBehaviour
         set
         {
             doReplayToggle.SetIsOnWithoutNotify(value);
+            linkedAvatarModelMover.gameObject.SetActive(value);
         }
     }
     VRCPlayerApi selectedPlayer;
@@ -152,13 +153,16 @@ public class SyncedLocationData : UdonSharpBehaviour
 
         //Set states from UI buttons
         DoReplay = doReplayToggle.isOn;
-        doRecordIfOwner = doRecordIfOwnerToggle.isOn;
         linkedAvatarModelMover.gameObject.SetActive(DoReplay);
     }
+
+    bool setupRan = false;
 
     //Script events
     public void ClearAndSetup(MotionCaptureController linkedController)
     {
+        setupRan = true;
+
         //External data
         if (localPlayer == null) localPlayer = Networking.LocalPlayer;
 
@@ -183,7 +187,7 @@ public class SyncedLocationData : UdonSharpBehaviour
 
     public void ClearBeforeRecording()
     {
-        if (!Networking.IsOwner(gameObject) || !doRecordIfOwner) return;
+        if (!Networking.IsOwner(gameObject) || !doRecordIfOwnerToggle.isOn) return;
 
         recordedHipPositions = new DataList();
         recorderBoneRotations = new DataList();
@@ -207,7 +211,7 @@ public class SyncedLocationData : UdonSharpBehaviour
 
     public void FinishAndTransferData()
     {
-        if (!Networking.IsOwner(gameObject) || !doRecordIfOwner) return;
+        if (!Networking.IsOwner(gameObject) || !doRecordIfOwnerToggle.isOn) return;
 
         //Positions
         syncedRecordedHipPositions = new Vector3[recordedHipPositions.Count];
@@ -244,7 +248,7 @@ public class SyncedLocationData : UdonSharpBehaviour
 
     public void RecordLocation(float timeForReference)
     {
-        if (!Networking.IsOwner(gameObject) || !doRecordIfOwner)
+        if (!Networking.IsOwner(gameObject) || !doRecordIfOwnerToggle.isOn)
         {
             SetReplayLocations(Time.time - linkedController.ReplayStartTime);
 
@@ -263,6 +267,8 @@ public class SyncedLocationData : UdonSharpBehaviour
 
     public void SetReplayLocations(float replayTime)
     {
+        if (syncedRecordedHipPositions.Length == 0) return;
+
         if (!DoReplay) return;
 
         //Step
@@ -329,36 +335,49 @@ public class SyncedLocationData : UdonSharpBehaviour
         SelectedPlayer = localPlayer;
     }
 
-    public void UpdateDoRecordIfOwnerToggle()
-    {
-        doRecordIfOwner = doRecordIfOwnerToggle.isOn;
-    }
-
     public void UpdateDoReplayToggle()
     {
         if (linkedController.AllowReplayChange)
         {
-            DoReplay = doReplayToggle.isOn;
-
             linkedAvatarModelMover.gameObject.SetActive(DoReplay);
 
-            linkedController.UpdateReplayStatesFromSync();
+            linkedController.UpdateReplaySyncFromTogglesIfOwner();
         }
         else
         {
-            linkedController.RestoreReplayStates();
+            linkedController.SetReplayStatesFromSync();
         }
     }
 
     public void RequestOwnership()
     {
         SetPlayerAsOwner();
+
+        RequestSerialization();
     }
 
     //VRChat functions
+    public override void OnPreSerialization()
+    {
+        base.OnPreSerialization();
+    }
+
+    public override void OnPostSerialization(SerializationResult result)
+    {
+        base.OnPostSerialization(result);
+    }
+
     public override void OnDeserialization()
     {
+        if (!setupRan)
+        {
+            Debug.LogWarning("Setup did not run");
+            return;
+        }
+
         base.OnDeserialization();
+        
+        PrepareReplayData();
 
         RecordedTime = recordedTime; //Update text
 
@@ -366,7 +385,6 @@ public class SyncedLocationData : UdonSharpBehaviour
 
         linkedController.UpdateMaxTime();
 
-        PrepareReplayData();
     }
 
     public override void OnOwnershipTransferred(VRCPlayerApi player)
