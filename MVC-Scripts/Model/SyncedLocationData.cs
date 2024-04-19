@@ -21,7 +21,7 @@ public class SyncedLocationData : UdonSharpBehaviour
     [SerializeField] AvatarModelMover linkedAvatarModelMover;
 
     //Synced variables
-    [UdonSynced] Vector3[] syncedRecordedAvatarPositions = new Vector3[0];
+    [UdonSynced] Vector3[] syncedRecordedHipPositions = new Vector3[0];
     [UdonSynced] Quaternion[] syncedRecordedBoneRotations = new Quaternion[0];
     [UdonSynced] float recordedTime;
     [UdonSynced] float syncedPlayerHeight;
@@ -40,7 +40,7 @@ public class SyncedLocationData : UdonSharpBehaviour
     }
 
     //Fixed variables
-    DataList recordedAvatarPositions;
+    DataList recordedHipPositions;
     DataList recorderBoneRotations;
     MotionCaptureController linkedController;
     VRCPlayerApi localPlayer;
@@ -59,7 +59,7 @@ public class SyncedLocationData : UdonSharpBehaviour
     //Internal functions
     void SetDummyData()
     {
-        syncedRecordedAvatarPositions = new Vector3[] { Vector3.zero };
+        syncedRecordedHipPositions = new Vector3[] { Vector3.zero };
         syncedRecordedBoneRotations = GetBoneRotations();
         timeStep = 1;
         bones = syncedRecordedBoneRotations.Length;
@@ -98,7 +98,7 @@ public class SyncedLocationData : UdonSharpBehaviour
 
     void PrepareReplayData()
     {
-        recordedSteps = syncedRecordedAvatarPositions.Length;
+        recordedSteps = syncedRecordedHipPositions.Length;
         
         if(recordedSteps == 0)
         {
@@ -107,7 +107,7 @@ public class SyncedLocationData : UdonSharpBehaviour
         else
         {
             timeStep = recordedTime / recordedSteps;
-            bones = syncedRecordedBoneRotations.Length / syncedRecordedAvatarPositions.Length;
+            bones = syncedRecordedBoneRotations.Length / syncedRecordedHipPositions.Length;
         }
     }
 
@@ -162,7 +162,7 @@ public class SyncedLocationData : UdonSharpBehaviour
         if (localPlayer == null) localPlayer = Networking.LocalPlayer;
 
         //Data creation
-        recordedAvatarPositions = new DataList();
+        recordedHipPositions = new DataList();
         recorderBoneRotations = new DataList();
 
         //Variable data
@@ -184,7 +184,7 @@ public class SyncedLocationData : UdonSharpBehaviour
     {
         if (!Networking.IsOwner(gameObject) || !doRecordIfOwner) return;
 
-        recordedAvatarPositions = new DataList();
+        recordedHipPositions = new DataList();
         recorderBoneRotations = new DataList();
 
     }
@@ -209,11 +209,11 @@ public class SyncedLocationData : UdonSharpBehaviour
         if (!Networking.IsOwner(gameObject) || !doRecordIfOwner) return;
 
         //Positions
-        syncedRecordedAvatarPositions = new Vector3[recordedAvatarPositions.Count];
+        syncedRecordedHipPositions = new Vector3[recordedHipPositions.Count];
 
-        for (int i = 0; i < syncedRecordedAvatarPositions.Length; i++)
+        for (int i = 0; i < syncedRecordedHipPositions.Length; i++)
         {
-            syncedRecordedAvatarPositions[i] = (Vector3)recordedAvatarPositions[i].Reference;
+            syncedRecordedHipPositions[i] = (Vector3)recordedHipPositions[i].Reference;
         }
 
         //Rotations
@@ -251,10 +251,10 @@ public class SyncedLocationData : UdonSharpBehaviour
         }
 
         //Vector3 avatarPosition = (linkedPlayer.isLocal) ? linkedPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.AvatarRoot).position : linkedPlayer.GetPosition(); //Only needed for rotation I think
-        Vector3 avatarPosition = selectedPlayer.GetPosition();
+        Vector3 avatarPosition = selectedPlayer.GetBonePosition(HumanBodyBones.Hips);
         Quaternion[] boneRotations = GetBoneRotations();
 
-        recordedAvatarPositions.Add(new DataToken((object)avatarPosition));
+        recordedHipPositions.Add(new DataToken((object)avatarPosition));
         recorderBoneRotations.Add(new DataToken((object)boneRotations));
 
         RecordedTime = timeForReference;
@@ -271,7 +271,7 @@ public class SyncedLocationData : UdonSharpBehaviour
             if (recordedSteps == 1) return;
             else if (recordedSteps == 1)
             {
-                linkedAvatarModelMover.SetAvatarData(syncedRecordedAvatarPositions[0], syncedRecordedBoneRotations);
+                linkedAvatarModelMover.SetAvatarData(syncedRecordedHipPositions[0], syncedRecordedBoneRotations);
             }
             earlyStep = recordedSteps - 2;
         }
@@ -280,8 +280,8 @@ public class SyncedLocationData : UdonSharpBehaviour
         float subStepLerpValue = Mathf.Clamp01((replayTime - earlyStep * timeStep) / timeStep);
 
         //Position
-        Vector3 earlyAvatarPosition = syncedRecordedAvatarPositions[earlyStep];
-        Vector3 lateAvatarPosition = syncedRecordedAvatarPositions[lateStep];
+        Vector3 earlyAvatarPosition = syncedRecordedHipPositions[earlyStep];
+        Vector3 lateAvatarPosition = syncedRecordedHipPositions[lateStep];
         Vector3 playerPosition = Vector3.Lerp(earlyAvatarPosition, lateAvatarPosition, subStepLerpValue);
 
         //Rotations

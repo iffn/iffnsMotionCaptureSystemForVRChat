@@ -11,6 +11,7 @@ public enum TimelineStates
     replaying
 }
 
+[UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
 public class MotionCaptureController : UdonSharpBehaviour
 {
     //UI
@@ -122,7 +123,7 @@ public class MotionCaptureController : UdonSharpBehaviour
 
     void UpdateFixedUpdateText()
     {
-        currentFixedUpdateText.text = $"{fixedUpdateBetweenRecordStates}/{Mathf.RoundToInt(1f/ Time.fixedDeltaTime)}, {Time.fixedDeltaTime * fixedUpdateBetweenRecordStates * 1000} ms, {1 / (Time.fixedDeltaTime * fixedUpdateBetweenRecordStates)} times/s";
+        currentFixedUpdateText.text = $"{fixedUpdateBetweenRecordStates}/{Mathf.RoundToInt(1f/ Time.fixedDeltaTime)}, every {Time.fixedDeltaTime * fixedUpdateBetweenRecordStates * 1000} ms, {1 / (Time.fixedDeltaTime * fixedUpdateBetweenRecordStates)} times/s";
     }
 
     //Unity functions

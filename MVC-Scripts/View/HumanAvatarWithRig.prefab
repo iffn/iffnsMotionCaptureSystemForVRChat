@@ -79,9 +79,6 @@ MonoBehaviour:
   RightHand: {fileID: 7886281747976612853}
   LeftToes: {fileID: 4582293660094239059}
   RightToes: {fileID: 8184064559905826563}
-  LeftEye: {fileID: 0}
-  RightEye: {fileID: 0}
-  Jaw: {fileID: 0}
 --- !u!114 &4224042008767203028
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -119,7 +116,7 @@ PrefabInstance:
     - target: {fileID: -8679921383154817045, guid: 75e90767ba404b043a1c5b156767d041,
         type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.601478
+      value: 0.6014781
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 75e90767ba404b043a1c5b156767d041,
         type: 3}
@@ -129,22 +126,22 @@ PrefabInstance:
     - target: {fileID: -8679921383154817045, guid: 75e90767ba404b043a1c5b156767d041,
         type: 3}
       propertyPath: m_LocalScale.z
-      value: 0.601478
+      value: 0.60147804
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 75e90767ba404b043a1c5b156767d041,
         type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: -0.0021910667
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 75e90767ba404b043a1c5b156767d041,
         type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: -0.5941017
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 75e90767ba404b043a1c5b156767d041,
         type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: -0.010424495
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 75e90767ba404b043a1c5b156767d041,
         type: 3}
@@ -164,7 +161,7 @@ PrefabInstance:
     - target: {fileID: -8679921383154817045, guid: 75e90767ba404b043a1c5b156767d041,
         type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0
+      value: -0.0000000018335411
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 75e90767ba404b043a1c5b156767d041,
         type: 3}

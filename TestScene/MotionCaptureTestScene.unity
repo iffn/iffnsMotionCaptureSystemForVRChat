@@ -576,7 +576,7 @@ MonoBehaviour:
   SynchronizePosition: 0
   AllowCollisionOwnershipTransfer: 0
   Reliable: 0
-  _syncMethod: 2
+  _syncMethod: 3
   serializedProgramAsset: {fileID: 11400000, guid: 972ed420e386f4d4582f48a8b82c6f68,
     type: 2}
   programSource: {fileID: 11400000, guid: 2226af116494cff4da08de4327155817, type: 2}
@@ -5196,7 +5196,7 @@ PrefabInstance:
     - target: {fileID: 1055321711490392694, guid: 8894fa7e4588a5c4fab98453e558847d,
         type: 3}
       propertyPath: blueprintId
-      value: wrld_bf06969f-70c0-43f1-80fe-2412305e811f
+      value: wrld_cee05cf3-267f-45b8-b0ed-00440e2edee6
       objectReference: {fileID: 0}
     - target: {fileID: 1094421957795580606, guid: 8894fa7e4588a5c4fab98453e558847d,
         type: 3}
@@ -8291,7 +8291,7 @@ PrefabInstance:
     - target: {fileID: 676015743661682659, guid: 1763aee2e28d9a34386636eee649ea03,
         type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: 0.569
       objectReference: {fileID: 0}
     - target: {fileID: 676015743661682659, guid: 1763aee2e28d9a34386636eee649ea03,
         type: 3}
@@ -10806,7 +10806,7 @@ PrefabInstance:
     - target: {fileID: 676015743661682659, guid: 1763aee2e28d9a34386636eee649ea03,
         type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: 0.569
       objectReference: {fileID: 0}
     - target: {fileID: 676015743661682659, guid: 1763aee2e28d9a34386636eee649ea03,
         type: 3}
@@ -13279,7 +13279,7 @@ PrefabInstance:
     - target: {fileID: 676015743661682659, guid: 1763aee2e28d9a34386636eee649ea03,
         type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: 0.569
       objectReference: {fileID: 0}
     - target: {fileID: 676015743661682659, guid: 1763aee2e28d9a34386636eee649ea03,
         type: 3}
