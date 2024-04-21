@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c333ccfdd0cbdbc4ca30cef2dd6e6b9b, type: 3}
   m_Name: AvatarModelMover
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 8d3c4c2edd712fa4798eb15ede0f48ea,
+  serializedUdonProgramAsset: {fileID: 11400000, guid: 16c2395e0e138c041870d8ce0ee44cef,
     type: 2}
   udonAssembly: 
   assemblyError: 

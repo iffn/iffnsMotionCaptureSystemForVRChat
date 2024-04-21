@@ -22,20 +22,20 @@ public class SyncedLocationData : UdonSharpBehaviour
     [SerializeField] AvatarModelMover linkedAvatarModelMover;
 
     //Synced variables
-    [UdonSynced] Vector3[] syncedRecordedHipPositions = new Vector3[0];
-    [UdonSynced] Quaternion[] syncedRecordedBoneRotations = new Quaternion[0];
-    [UdonSynced] float recordedTime;
-    [UdonSynced] float syncedPlayerHeight;
+    [UdonSynced] public Vector3[] syncedRecordedHipPositions = new Vector3[0];
+    [UdonSynced] public Quaternion[] syncedRecordedBoneRotations = new Quaternion[0];
+    [UdonSynced] public float syncedRecordedTime;
+    [UdonSynced] public float syncedPlayerHeight;
 
     public float RecordedTime
     {
         get
         {
-            return recordedTime;
+            return syncedRecordedTime;
         }
         set
         {
-            recordedTime = value;
+            syncedRecordedTime = value;
             SetRecordingTimeText();
         }
     }
@@ -117,7 +117,7 @@ public class SyncedLocationData : UdonSharpBehaviour
         }
         else
         {
-            timeStep = recordedTime / recordedSteps;
+            timeStep = syncedRecordedTime / recordedSteps;
             bones = syncedRecordedBoneRotations.Length / syncedRecordedHipPositions.Length;
         }
     }
@@ -138,7 +138,7 @@ public class SyncedLocationData : UdonSharpBehaviour
 
     void SetRecordingTimeText()
     {
-        recordedTimeText.text = $"{recordedTime}s";
+        recordedTimeText.text = $"{syncedRecordedTime}s";
     }
 
     void SetSelectedPlayerText()
@@ -379,7 +379,7 @@ public class SyncedLocationData : UdonSharpBehaviour
         
         PrepareReplayData();
 
-        RecordedTime = recordedTime; //Update text
+        RecordedTime = syncedRecordedTime; //Update text
 
         linkedAvatarModelMover.transform.localScale = syncedPlayerHeight * Vector3.one;
 
