@@ -59,6 +59,7 @@ public class SyncedLocationData : UdonSharpBehaviour
             linkedAvatarModelMover.gameObject.SetActive(value);
         }
     }
+    
     VRCPlayerApi selectedPlayer;
     VRCPlayerApi[] players;
     int selectedPlayerInPlayerIndex;
