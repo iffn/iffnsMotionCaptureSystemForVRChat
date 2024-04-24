@@ -20,6 +20,10 @@ public class SaveSlot : UdonSharpBehaviour
     const string rotationPecision = "0.000";
     const string positonPecision = "0.000";
 
+    void UpdateUI()
+    {
+        timeIndicationText.text = $"t={savedRecordedTime}s\nat{Time.time}";
+    }
 
     public void SaveToSlot(int slotNumber)
     {
@@ -60,7 +64,7 @@ public class SaveSlot : UdonSharpBehaviour
         savedRecordedTime = linkedDataSyncers[slotNumber].syncedRecordedTime;
         savedPlayerHeight = linkedDataSyncers[slotNumber].syncedPlayerHeight;
 
-        timeIndicationText.text = $"t={savedRecordedTime}s\nat{Time.time}";
+        UpdateUI();
     }
 
     public void ExportData()
@@ -116,70 +120,77 @@ public class SaveSlot : UdonSharpBehaviour
 
         inputText = inputText.Replace("\r", "");
 
-        string[] lines = inputText.Split("\n");
+        string[] lines = inputText.Split('\n');
 
         string[] currentSplit;
         string currentLine;
         bool worked;
 
         currentLine = lines[0];
-        currentSplit = currentLine.Split(":\t");
-        
-        if (currentSplit[1].Equals("1"))
+        currentSplit = currentLine.Split('\t');
+
+        if (currentSplit[1].Equals('1'))
         {
             //RecordingTime
             int currentLineIndex = 1;
 
             currentLine = lines[currentLineIndex++];
-            currentSplit = currentLine.Split(":\t");
-            worked = float.TryParse(currentSplit[0], out savedRecordedTime);
+            currentSplit = currentLine.Split('\t');
+            worked = float.TryParse(currentSplit[0], out float recordedTime);
 
             //Height
             currentLine = lines[currentLineIndex++];
-            currentSplit = currentLine.Split(":\t");
-            worked = float.TryParse(currentSplit[0], out savedPlayerHeight);
+            currentSplit = currentLine.Split('\t');
+            worked = float.TryParse(currentSplit[0], out float playerHeight);
 
             //TimeSteps
             currentLine = lines[currentLineIndex++];
-            currentSplit = currentLine.Split(":\t");
+            currentSplit = currentLine.Split('\t');
             worked = int.TryParse(currentSplit[0], out int timeSteps);
 
             //Positions
-            savedRecordedHipPositions = new Vector3[timeSteps];
+            Vector3[] hipPositions = new Vector3[timeSteps];
 
-            for(int i = 0; i < timeSteps; i++)
+            for (int i = 0; i < timeSteps; i++)
             {
                 currentLine = lines[currentLineIndex++];
-                currentSplit = currentLine.Split("\t");
+                currentSplit = currentLine.Split('\t');
 
-                worked = float.TryParse(currentSplit[0], out savedRecordedHipPositions[i].x);
-                worked = float.TryParse(currentSplit[1], out savedRecordedHipPositions[i].y);
-                worked = float.TryParse(currentSplit[2], out savedRecordedHipPositions[i].z);
+                worked = float.TryParse(currentSplit[0], out hipPositions[i].x);
+                worked = float.TryParse(currentSplit[1], out hipPositions[i].y);
+                worked = float.TryParse(currentSplit[2], out hipPositions[i].z);
             }
 
             //Bones
             currentLine = lines[currentLineIndex++];
-            currentSplit = currentLine.Split(":\t");
+            currentSplit = currentLine.Split('\t');
             worked = int.TryParse(currentSplit[0], out int bones);
 
             //Rotations
-            savedRecordedBoneRotations = new Quaternion[bones * timeSteps];
-            for(int i = 0; i < timeSteps; ++i)
+            Quaternion[] boneRotations = new Quaternion[bones * timeSteps];
+
+            for (int i = 0; i < timeSteps; ++i)
             {
                 currentLine = lines[currentLineIndex++];
-                currentSplit = currentLine.Split("\t");
+                currentSplit = currentLine.Split('\t');
 
-                for(int j = 0; j < currentSplit.Length; j++)
+                for (int j = 0; j < currentSplit.Length; j++)
                 {
-                    worked = float.TryParse(currentSplit[j * 4], out savedRecordedBoneRotations[i * bones + j].x);
-                    worked = float.TryParse(currentSplit[j * 4 + 1], out savedRecordedBoneRotations[i * bones + j].y);
-                    worked = float.TryParse(currentSplit[j * 4 + 2], out savedRecordedBoneRotations[i * bones + j].z);
-                    worked = float.TryParse(currentSplit[j * 4 + 3], out savedRecordedBoneRotations[i * bones + j].w);
+                    worked = float.TryParse(currentSplit[j * 4], out boneRotations[i * bones + j].x);
+                    worked = float.TryParse(currentSplit[j * 4 + 1], out boneRotations[i * bones + j].y);
+                    worked = float.TryParse(currentSplit[j * 4 + 2], out boneRotations[i * bones + j].z);
+                    worked = float.TryParse(currentSplit[j * 4 + 3], out boneRotations[i * bones + j].w);
                 }
             }
 
             //Assignment
-            
+            savedPlayerHeight = playerHeight;
+            savedRecordedTime = recordedTime;
+            savedRecordedHipPositions = hipPositions;
+            savedRecordedBoneRotations = boneRotations;
+
+            UpdateUI();
         }
     }
+
 }
