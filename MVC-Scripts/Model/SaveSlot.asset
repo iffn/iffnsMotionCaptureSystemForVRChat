@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c333ccfdd0cbdbc4ca30cef2dd6e6b9b, type: 3}
   m_Name: SaveSlot
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 1a00416b1b09efd4eb5baf36a3ccac25,
+  serializedUdonProgramAsset: {fileID: 11400000, guid: ee727e576feee9342b06d9739963aa97,
     type: 2}
   udonAssembly: 
   assemblyError: 

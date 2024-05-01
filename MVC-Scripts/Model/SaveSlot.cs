@@ -15,8 +15,8 @@ public class SaveSlot : UdonSharpBehaviour
     //Data storage
     Vector3[] savedRecordedHipPositions = new Vector3[0];
     Quaternion[] savedRecordedBoneRotations = new Quaternion[0];
-    float savedRecordedTime;
-    float savedPlayerHeight;
+    float savedRecordedTime = 1;
+    float savedPlayerHeight = 0;
     const string rotationPecision = "0.000";
     const string positonPecision = "0.000";
 
@@ -76,7 +76,7 @@ public class SaveSlot : UdonSharpBehaviour
     {
         string outputText = "";
 
-        outputText += $"Version:\t1";
+        outputText += $"Version:\t1\n";
         outputText += $"Time:\t{savedRecordedTime}\n";
         outputText += $"Height:\t{savedPlayerHeight}\n";
 

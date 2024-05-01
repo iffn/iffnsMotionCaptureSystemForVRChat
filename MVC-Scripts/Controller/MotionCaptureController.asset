@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c333ccfdd0cbdbc4ca30cef2dd6e6b9b, type: 3}
   m_Name: MotionCaptureController
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 22c86552ce4e1ab4cbf6281e4a1f2713,
+  serializedUdonProgramAsset: {fileID: 11400000, guid: 972ed420e386f4d4582f48a8b82c6f68,
     type: 2}
   udonAssembly: 
   assemblyError: 

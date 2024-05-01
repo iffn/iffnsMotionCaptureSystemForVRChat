@@ -3,11 +3,12 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon;
+using VRC.Udon.Common;
 
 public class PlayerEmulator : UdonSharpBehaviour
 {
     [SerializeField] AvatarModelMover linkedAvatarModelMover;
-    [SerializeField] string saveData;
+    [SerializeField, Multiline(10)] string saveData;
     
     Vector3[] hipPositions = new Vector3[0];
     Quaternion[] boneRotations = new Quaternion[0];
@@ -32,12 +33,18 @@ public class PlayerEmulator : UdonSharpBehaviour
 
         string[] lines = saveData.Split('\n');
 
+        //Debug.Log($"{nameof(lines)} = {lines.Length}");
+
         string[] currentSplit;
         string currentLine;
         bool worked;
 
         currentLine = lines[0];
         currentSplit = currentLine.Split('\t');
+
+        Debug.Log($"{nameof(currentSplit)} = {currentSplit[1]}");
+
+        Debug.Log(currentSplit[1]);
 
         if (currentSplit[1].Equals('1'))
         {
@@ -113,6 +120,9 @@ public class PlayerEmulator : UdonSharpBehaviour
         running = true;
         startTime = Time.time;
         endTime = Time.time + recordedTime;
+
+        Debug.Log($"{nameof(recordedTime)} = {recordedTime}");
+        Debug.Log($"{nameof(recordedSteps)} = {recordedSteps}");
     }
 
     private void Update()
@@ -165,5 +175,22 @@ public class PlayerEmulator : UdonSharpBehaviour
 
         //Set avatar
         linkedAvatarModelMover.SetAvatarData(playerPosition, boneRotations);
+    }
+
+    public override void Interact()
+    {
+        base.Interact();
+
+        StartPlaying();
+    }
+
+    public override void InputJump(bool value, UdonInputEventArgs args)
+    {
+        base.InputJump(value, args);
+
+        if(value)
+        {
+            StartPlaying();
+        }
     }
 }
