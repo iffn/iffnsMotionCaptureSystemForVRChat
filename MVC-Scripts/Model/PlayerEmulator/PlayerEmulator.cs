@@ -9,14 +9,14 @@ public class PlayerEmulator : UdonSharpBehaviour
 {
     [SerializeField] AvatarModelMover linkedAvatarModelMover;
     [SerializeField, Multiline(10)] string saveData;
-    
-    Vector3[] hipPositions = new Vector3[0];
-    Quaternion[] boneRotations = new Quaternion[0];
-    float recordedTime;
-    float playerHeight;
-    int recordedSteps;
-    float timeStep;
-    int bones;
+
+    public Vector3[] hipPositions = new Vector3[0];
+    public Quaternion[] boneRotations = new Quaternion[0];
+    public float recordedTime;
+    public float playerHeight;
+    public int recordedSteps;
+    public float timeStep;
+    public int bones;
 
     float startTime = 0;
     float endTime;
@@ -25,6 +25,7 @@ public class PlayerEmulator : UdonSharpBehaviour
     public void Start()
     {
         Import();
+        linkedAvatarModelMover.Setup();
     }
 
     public void Import()
@@ -42,28 +43,24 @@ public class PlayerEmulator : UdonSharpBehaviour
         currentLine = lines[0];
         currentSplit = currentLine.Split('\t');
 
-        Debug.Log($"{nameof(currentSplit)} = {currentSplit[1]}");
-
-        Debug.Log(currentSplit[1]);
-
-        if (currentSplit[1].Equals('1'))
+        if (currentSplit[1].Equals("1"))
         {
             //RecordingTime
             int currentLineIndex = 1;
 
             currentLine = lines[currentLineIndex++];
             currentSplit = currentLine.Split('\t');
-            worked = float.TryParse(currentSplit[0], out float recordedTime);
+            worked = float.TryParse(currentSplit[1], out float recordedTime);
 
             //Height
             currentLine = lines[currentLineIndex++];
             currentSplit = currentLine.Split('\t');
-            worked = float.TryParse(currentSplit[0], out float playerHeight);
+            worked = float.TryParse(currentSplit[1], out float playerHeight);
 
             //TimeSteps
             currentLine = lines[currentLineIndex++];
             currentSplit = currentLine.Split('\t');
-            worked = int.TryParse(currentSplit[0], out int timeSteps);
+            worked = int.TryParse(currentSplit[1], out int timeSteps);
 
             //Positions
             Vector3[] hipPositions = new Vector3[timeSteps];
@@ -81,11 +78,12 @@ public class PlayerEmulator : UdonSharpBehaviour
             //Bones
             currentLine = lines[currentLineIndex++];
             currentSplit = currentLine.Split('\t');
-            worked = int.TryParse(currentSplit[0], out int bones);
+            worked = int.TryParse(currentSplit[1], out int bones);
 
             //Rotations
             Quaternion[] boneRotations = new Quaternion[bones * timeSteps];
 
+            /*
             for (int i = 0; i < timeSteps; ++i)
             {
                 currentLine = lines[currentLineIndex++];
@@ -99,6 +97,13 @@ public class PlayerEmulator : UdonSharpBehaviour
                     worked = float.TryParse(currentSplit[j * 4 + 3], out boneRotations[i * bones + j].w);
                 }
             }
+            */
+
+            Debug.Log($"{nameof(recordedTime)} = {recordedTime}");
+            Debug.Log($"{nameof(playerHeight)} = {playerHeight}");
+            Debug.Log($"{nameof(playerHeight)} = {playerHeight}");
+            Debug.Log($"{nameof(hipPositions)} = {hipPositions.Length}");
+            Debug.Log($"{nameof(boneRotations)} = {boneRotations.Length}");
 
             SetData(recordedTime, playerHeight, hipPositions, boneRotations);
         }
@@ -111,8 +116,10 @@ public class PlayerEmulator : UdonSharpBehaviour
         this.hipPositions = hipPositions;
         this.boneRotations = boneRotations;
 
+        timeStep = recordedTime / recordedSteps;
         recordedSteps = hipPositions.Length;
         bones = boneRotations.Length / hipPositions.Length;
+
     }
 
     public void StartPlaying()
